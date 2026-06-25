@@ -124,12 +124,9 @@ static CFTypeRef replaced_MGCopyAnswer(CFStringRef property) {
 
     %init;
 
-    if (MGCopyAnswer) {
-
-        MSHookFunction(
-            (void *)MGCopyAnswer,
-            (void *)replaced_MGCopyAnswer,
-            (void **)&orig_MGCopyAnswer
-        );
-    }
+    MSHookFunction(
+        (void *)&MGCopyAnswer,
+        (void *)replaced_MGCopyAnswer,
+        (void **)&orig_MGCopyAnswer
+    );
 }
