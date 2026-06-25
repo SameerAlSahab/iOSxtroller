@@ -16,5 +16,4 @@ appstoretroller_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 appstoretroller_LIBRARIES = MobileGestalt
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-SUBPROJECTS += appstoretrollerPrefs
 include $(THEOS_MAKE_PATH)/aggregate.mk
