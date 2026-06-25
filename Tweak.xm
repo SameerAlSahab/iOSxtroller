@@ -1,31 +1,17 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#include <unistd.h>
-#include <string.h>
 
 FOUNDATION_EXTERN CFTypeRef MGCopyAnswer(CFStringRef property);
 
-%group ThirdPartyAppHooks
+static NSString *kVersion = @"17.0";
+static NSString *kBuild = @"21A329";
 
-%hook NSDictionary
-+ (NSDictionary *)dictionaryWithContentsOfFile:(NSString *)path {
-    NSDictionary *orig = %orig;
+%hook UIDevice
 
-    if (path && [path hasSuffix:@"SystemVersion.plist"]) {
-        NSMutableDictionary *fake = [orig mutableCopy];
-
-        if (!fake) {
-            fake = [NSMutableDictionary dictionary];
-        }
-
-        fake[@"ProductVersion"] = @"17.0";
-        fake[@"ProductBuildVersion"] = @"21A329";
-
-        return fake;
-    }
-
-    return orig;
+- (NSString *)systemVersion {
+    return kVersion;
 }
+
 %end
 
 
@@ -33,52 +19,56 @@ FOUNDATION_EXTERN CFTypeRef MGCopyAnswer(CFStringRef property);
 
 - (NSOperatingSystemVersion)operatingSystemVersion {
     NSOperatingSystemVersion v;
-
     v.majorVersion = 17;
     v.minorVersion = 0;
     v.patchVersion = 0;
-
     return v;
 }
 
 - (NSString *)operatingSystemVersionString {
-    return @"Version 17.0 (Build 21A329)";
+    return [NSString stringWithFormat:@"Version %@ (Build %@)", kVersion, kBuild];
 }
 
 %end
 
 
-%hook UIDevice
+%hook NSDictionary
 
-- (NSString *)systemVersion {
-    return @"17.0";
-}
++ (NSDictionary *)dictionaryWithContentsOfFile:(NSString *)path {
 
-%end
+    NSDictionary *orig = %orig;
 
-
-%hookf(CFTypeRef, MGCopyAnswer, CFStringRef property) {
-
-    if (property) {
-
-        NSString *key = (__bridge NSString *)property;
-
-        if ([key isEqualToString:@"ProductVersion"]) {
-            return CFBridgingRetain(@"17.0");
-        }
-
-        if ([key isEqualToString:@"ProductBuildVersion"]) {
-            return CFBridgingRetain(@"21A329");
-        }
+    if (![path hasSuffix:@"SystemVersion.plist"]) {
+        return orig;
     }
 
-    return %orig(property);
+    NSMutableDictionary *fake =
+        orig ? [orig mutableCopy] : [NSMutableDictionary new];
+
+    fake[@"ProductVersion"] = kVersion;
+    fake[@"ProductBuildVersion"] = kBuild;
+
+    return fake;
 }
 
 %end
 
 
-%group InstallerHooks
+%hook NSBundle
+
+- (NSDictionary *)infoDictionary {
+
+    NSMutableDictionary *dict = [[%orig ?: @{}] mutableCopy];
+
+    if (dict[@"MinimumOSVersion"]) {
+        dict[@"MinimumOSVersion"] = @"1.0";
+    }
+
+    return dict;
+}
+
+%end
+
 
 %hook MIBundle
 
@@ -86,24 +76,37 @@ FOUNDATION_EXTERN CFTypeRef MGCopyAnswer(CFStringRef property);
        applicableToOSVersion:(id)arg2
                   requiredOS:(id *)arg3
                        error:(id *)arg4 {
+
     return YES;
 }
 
 %end
 
-%end
-
 
 %ctor {
-    @autoreleasepool {
 
-        const char *procName = getprogname();
-        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+    %init;
 
-        if (procName && strcmp(procName, "installd") == 0) {
-            %init(InstallerHooks);
-        } else if (bundleID && ![bundleID hasPrefix:@"com.apple."]) {
-            %init(ThirdPartyAppHooks);
-        }
-    }
+    MSHookFunction(
+        (void *)MGCopyAnswer,
+        (void *)^(CFStringRef property) {
+
+            if (property) {
+
+                NSString *key = (__bridge NSString *)property;
+
+                if ([key isEqualToString:@"ProductVersion"]) {
+                    return (CFTypeRef)CFBridgingRetain(kVersion);
+                }
+
+                if ([key isEqualToString:@"ProductBuildVersion"]) {
+                    return (CFTypeRef)CFBridgingRetain(kBuild);
+                }
+            }
+
+            return MGCopyAnswer(property);
+
+        },
+        NULL
+    );
 }
