@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        clean: true
+
+    - name: Set up Homebrew Dependencies
+      run: |
+        brew install lz4 xz zstd dpkg ldid
+
+    - name: Install Theos
+      run: |
+        git clone --recursive https://github.com/theos/theos.git $HOME/theos
+
+        echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+    - name: Manually Clone Patched SDKs
+      run: |
+
+        rm -rf $HOME/theos/sdks
+
+        git clone https://github.com/theos/sdks.git $HOME/theos/sdks
+
+
+    - name: Compile Tweak
+      run: |
+        export PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+        make package THEOS_PACKAGE_SCHEME=rootless
+
+
+    - name: Upload .deb Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: File .deb
+        path: packages/*.deb
+        if-no-files-found: error

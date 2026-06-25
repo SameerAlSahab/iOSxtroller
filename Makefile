@@ -1,5 +1,6 @@
 TARGET := iphone:clang:16.5:15.0
-INSTALL_TARGET_PROCESSES = SpringBoard
+
+INSTALL_TARGET_PROCESSES = SpringBoard appstored installd
 ARCHS = arm64 arm64e
 THEOS_PACKAGE_SCHEME = rootless
 
@@ -12,6 +13,7 @@ TWEAK_NAME = appstoretroller
 
 appstoretroller_FILES = Tweak.xm
 appstoretroller_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
+appstoretroller_LIBRARIES = MobileGestalt
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += appstoretrollerPrefs
